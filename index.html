@@ -1234,15 +1234,19 @@
               <strong style="font-size:17px;">Chia sẻ bản vẽ</strong>
               <button type="button" id="closeDrawingShare" aria-label="Đóng" style="border:0;border-radius:9px;padding:8px 12px;background:#374151;color:white;font-size:18px;">✕</button>
             </div>
-            <p style="font-size:13px;line-height:1.5;color:#cbd5e1;margin:0 0 12px;">Ảnh PNG đã tạo xong. Nhấn “Chia sẻ bản vẽ” để mở bảng chia sẻ của điện thoại, sau đó chọn Lưu hình ảnh, Lưu vào Tệp hoặc gửi qua ứng dụng khác.</p>
+            <p style="font-size:13px;line-height:1.5;color:#cbd5e1;margin:0 0 12px;">Bản vẽ đã sẵn sàng. Bạn có thể chia sẻ ảnh PNG để xem nhanh hoặc file CAD (.DXF) để mở/chỉnh sửa trong phần mềm CAD. Trên điện thoại, chọn Lưu vào Tệp hoặc ứng dụng nhận file phù hợp.</p>
             <img id="drawingSharePreview" alt="Ảnh bản vẽ kỹ thuật" style="display:block;width:100%;max-height:48dvh;object-fit:contain;background:#000;border-radius:8px;margin-bottom:14px;" />
-            <button type="button" id="shareDrawingNow" style="display:block;width:100%;border:0;border-radius:10px;padding:14px;background:#2563eb;color:white;font-weight:700;font-size:16px;margin-bottom:8px;">↗ Chia sẻ bản vẽ</button>
+            <button type="button" id="shareDrawingNow" style="display:block;width:100%;border:0;border-radius:10px;padding:14px;background:#2563eb;color:white;font-weight:700;font-size:16px;margin-bottom:8px;">↗ Chia sẻ ảnh PNG</button>
+            <button type="button" id="shareCadNow" style="display:block;width:100%;border:0;border-radius:10px;padding:14px;background:#0f766e;color:white;font-weight:700;font-size:16px;margin-bottom:8px;">📐 Chia sẻ file CAD (.DXF)</button>
+            <button type="button" id="downloadCadNow" style="display:block;width:100%;border:1px solid #4b5563;border-radius:10px;padding:12px;background:#1f2937;color:white;font-size:15px;margin-bottom:8px;">Tải file CAD (.DXF)</button>
             <button type="button" id="openDrawingImage" style="display:block;width:100%;border:1px solid #4b5563;border-radius:10px;padding:12px;background:#1f2937;color:white;font-size:15px;margin-bottom:8px;">Mở ảnh riêng để lưu</button>
             <button type="button" id="downloadDrawingFile" style="display:block;width:100%;border:1px solid #4b5563;border-radius:10px;padding:12px;background:transparent;color:#e5e7eb;font-size:15px;">Tải file PNG</button>
           </div>`;
         document.body.appendChild(panel);
         panel.querySelector('#closeDrawingShare').addEventListener('click', () => panel.remove());
         panel.querySelector('#shareDrawingNow').addEventListener('click', sharePendingDrawing);
+        panel.querySelector('#shareCadNow').addEventListener('click', sharePendingCad);
+        panel.querySelector('#downloadCadNow').addEventListener('click', downloadPendingCad);
         panel.querySelector('#openDrawingImage').addEventListener('click', openPendingDrawingImage);
         panel.querySelector('#downloadDrawingFile').addEventListener('click', downloadPendingDrawing);
         panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
@@ -1301,8 +1305,8 @@
     // ==========================================
     // XUẤT DXF: đồng bộ hình học, khung và kích thước với vùng nhìn
     // ==========================================
-    function downloadDXF() {
-      if (!calcData || !calcData.valid) return;
+    function buildDXFFile() {
+      if (!calcData || !calcData.valid) return null;
       const d = calcData, entities = [];
       const fmt = n => (Number.isFinite(n) ? Number(n).toFixed(3) : '0.000');
       const addLine = (layer, x1, y1, x2, y2) => {
@@ -1381,9 +1385,47 @@
       ];
       const layerTable = layerDefs.map(([name,color])=>`0\nLAYER\n2\n${name}\n70\n64\n62\n${color}\n6\nCONTINUOUS`).join('\n');
       const dxfContent = `999\nTHIET KE BO CHIA VACH - TAC GIA: NGUYEN VAN PHUC\n0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLTYPE\n70\n1\n0\nLTYPE\n2\nCONTINUOUS\n70\n64\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n0\nENDTAB\n0\nTABLE\n2\nLAYER\n70\n${layerDefs.length}\n${layerTable}\n0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities.join('\n')}\n0\nENDSEC\n0\nEOF`;
-      const blob=new Blob([dxfContent],{type:'application/dxf'}), url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=`Vach_Chia_${d.L}x${d.W}_${d.nx}x${d.ny}.dxf`; link.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      const fileName = `Vach_Chia_${d.L}x${d.W}_${d.nx}x${d.ny}.dxf`;
+      return new File([dxfContent], fileName, { type: 'application/dxf' });
+    }
+
+    function downloadDXF() {
+      const file = buildDXFFile();
+      if (!file) { alert('Vui lòng nhập thông số hợp lệ trước khi xuất file CAD.'); return; }
+      downloadFileFallback(file, file.name);
+    }
+
+    async function sharePendingCad() {
+      const file = buildDXFFile();
+      if (!file) { alert('Vui lòng nhập thông số hợp lệ trước khi chia sẻ file CAD.'); return; }
+      try {
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Bản vẽ CAD', text: 'File CAD vách chia ô — một sản phẩm cá nhân của Phúc' });
+        } else {
+          downloadFileFallback(file, file.name);
+          alert('Trình duyệt này chưa hỗ trợ chia sẻ trực tiếp file CAD. Đã gửi yêu cầu tải file .DXF; hãy mở thư mục Tải về hoặc chọn chia sẻ file từ ứng dụng Tệp.');
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') {
+          console.error('Share CAD failed:', err);
+          alert('Không mở được bảng chia sẻ CAD. Hãy thử nút “Tải file CAD (.DXF)” rồi chia sẻ file từ ứng dụng Tệp.');
+        }
+      }
+    }
+
+    function downloadPendingCad() {
+      const file = buildDXFFile();
+      if (!file) { alert('Vui lòng nhập thông số hợp lệ trước khi xuất file CAD.'); return; }
+      downloadFileFallback(file, file.name);
+      alert('Đã gửi yêu cầu tải file CAD (.DXF). Nếu điện thoại không lưu tự động, hãy mở mục Tải về hoặc chia sẻ file từ ứng dụng Tệp.');
+    }
+
+    function downloadFileFallback(file, filename) {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || file.name; a.style.display = 'none';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
 
 
