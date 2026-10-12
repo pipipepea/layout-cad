@@ -937,15 +937,13 @@
         }
       }
 
-      // 2. KÍCH THƯỚC Ô LỌT LÒNG GÓC TRÊN BÊN TRÁI
-      const innerX = d.offX + d.tOuterX;
-      const firstCellCenterX = innerX + d.cellL / 2;
-      const firstCellCenterY = d.offY + d.tOuterY + d.cellW / 2;
+      // 2. KÍCH THƯỚC Ô: chuyển khỏi ô đầu tiên, đặt vào vùng trống bên dưới bản vẽ (vị trí đánh dấu đỏ).
+      // Vùng này nằm bên trái khung tên, giúp không che hình học và vẫn đọc được kích thước.
+      const cellLabelX = Math.max(55, Math.min(d.L * 0.28, d.L - 220));
+      const cellLabelY = d.W + 88;
       const fontSize = Math.max(8, Math.min(18, Math.min(d.cellL, d.cellW) * 0.16));
-
       markup += `
-        <rect x="${innerX + 1.5}" y="${d.offY + d.tOuterY + 1.5}" width="${d.cellL - 3}" height="${d.cellW - 3}" fill="rgba(255, 215, 0, 0.05)" stroke="rgba(255, 215, 0, 0.3)" stroke-width="0.8" stroke-dasharray="4,2"/>
-        <text x="${firstCellCenterX}" y="${firstCellCenterY}" fill="#ffd700" font-size="${fontSize}" font-family="Consolas, 'Courier New', monospace" font-weight="700" letter-spacing="0.5px" text-anchor="middle" dominant-baseline="middle">${d.cellL.toFixed(1)} × ${d.cellW.toFixed(1)}</text>
+        <text x="${cellLabelX}" y="${cellLabelY}" fill="#ffd700" font-size="${fontSize}" font-family="Consolas, 'Courier New', monospace" font-weight="700" letter-spacing="0.5px" text-anchor="middle" dominant-baseline="middle">${d.cellL.toFixed(1)} × ${d.cellW.toFixed(1)} mm</text>
       `;
 
       // 3. KHUNG BẢN VẼ NGOÀI & KHUNG TÊN (TITLE BLOCK)
@@ -972,7 +970,7 @@
           <line x1="${tbX}" y1="${tbY + 44}" x2="${tbX + tbW}" y2="${tbY + 44}" stroke="#252b3d" stroke-width="0.8" />
           <line x1="${tbX + 160}" y1="${tbY + 22}" x2="${tbX + 160}" y2="${tbY + tbH}" stroke="#252b3d" stroke-width="0.8" />
 
-          <text x="${tbX + 10}" y="${tbY + 14}" fill="#60a5fa" font-size="10.5" font-weight="700" letter-spacing="0.5px">CHI TIẾT: HỆ VÁCH CHIA Ô ĐỊNH HÌNH</text>
+          <text x="${tbX + 10}" y="${tbY + 14}" fill="#60a5fa" font-size="10.5" font-weight="700" letter-spacing="0.5px">CHI TIẾT: Layout Ô</text>
           <text x="${tbX + 10}" y="${tbY + 35}" fill="#cbd5e1" font-size="9.5">KÍCH THƯỚC: ${d.L} × ${d.W} mm</text>
           <text x="${tbX + 170}" y="${tbY + 35}" fill="#cbd5e1" font-size="9.5">SỐ Ô: ${d.nx * d.ny} (${d.nx}×${d.ny})</text>
           <text x="${tbX + 10}" y="${tbY + 56}" fill="#94a3b8" font-size="9">THIẾT KẾ: NGUYỄN VĂN PHÚC</text>
@@ -1337,11 +1335,11 @@
       // Hình học chính: xuất đầy đủ 4 cạnh mỗi hình chữ nhật.
       for (const s of buildGeometry(d)) addRect(s.layer,s.x,s.y,s.w,s.h);
 
-      // Kích thước ô lọt lòng, đúng vị trí ô đầu tiên trên bản xem trước.
+      // Kích thước ô đặt ở vùng trống bên dưới bản vẽ, tương ứng vị trí nhãn vàng trên SVG.
       const textH = Math.max(5, Math.min(14, Math.min(d.cellL,d.cellW)*0.16));
-      const firstX = d.offX + d.tOuterX + d.cellL/2;
-      const firstY = d.offY + d.tOuterY + d.cellW/2;
-      addText('KICH_THUOC_O',firstX,firstY,textH,`${d.cellL.toFixed(1)} x ${d.cellW.toFixed(1)}`);
+      const cellLabelX = Math.max(55, Math.min(d.L * 0.28, d.L - 220));
+      const cellLabelY = d.W + 88;
+      addText('KICH_THUOC_O',cellLabelX,cellLabelY,textH,`${d.cellL.toFixed(1)} x ${d.cellW.toFixed(1)} mm`);
 
       // Đường kích thước tổng thể và offset/vách: DXF dùng tọa độ mm, tỷ lệ 1:1.
       addLine('DUONG_DONG_KICH_THUOC',0,0,0,-41); addLine('DUONG_DONG_KICH_THUOC',d.L,0,d.L,-41);
@@ -1371,7 +1369,7 @@
       addLine('KHUNG_TEN',tbX,tbY+22,tbX+tbW,tbY+22);
       addLine('KHUNG_TEN',tbX,tbY+44,tbX+tbW,tbY+44);
       addLine('KHUNG_TEN',tbX+160,tbY+22,tbX+160,tbY+tbH);
-      addText('MO_TA_VACH',tbX+10,tbY+50,8,'CHI TIET: HE VACH CHIA O DINH HINH');
+      addText('MO_TA_VACH',tbX+10,tbY+50,8,'CHI TIET: Layout O');
       addText('MO_TA_VACH',tbX+10,tbY+30,7,`KICH THUOC: ${d.L} x ${d.W} mm`);
       addText('MO_TA_VACH',tbX+170,tbY+30,7,`SO O: ${d.nx*d.ny} (${d.nx}x${d.ny})`);
       addText('MO_TA_VACH',tbX+10,tbY+9,6,'THIET KE: NGUYEN VAN PHUC');
