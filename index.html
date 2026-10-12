@@ -103,6 +103,10 @@
       padding-bottom: 4px;
     }
 
+    .export-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .export-heading .card-title { margin-bottom:8px; flex:1 1 auto; }
+    .author-credit { color:#94a3b8; font-size:10px; font-style:italic; text-transform:none; letter-spacing:0; white-space:normal; }
+
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -363,9 +367,9 @@
         width: 100%;
         min-width: 0;
         max-width: none;
-        height: 48dvh;
-        min-height: 270px;
-        flex: 0 0 48dvh;
+        height: 61dvh;
+        min-height: 0;
+        flex: 0 0 61dvh;
         border-right: 0;
         border-bottom: 1px solid var(--border);
         box-shadow: 0 4px 20px rgba(0,0,0,.55);
@@ -376,7 +380,7 @@
         padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
         gap: 10px;
       }
-      .viewport { width: 100%; height: 52dvh; flex: 1 1 52dvh; }
+      .viewport { width: 100%; height: 32dvh; min-height: 0; flex: 0 0 32dvh; }
       .cad-toolbar {
         top: 8px; right: 8px; left: 8px;
         justify-content: flex-end;
@@ -393,13 +397,13 @@
       .btn-cad { min-height: 46px; font-size: 12px; }
       .mobile-view-toggle { display: flex; }
       body.mobile-show-preview .sidebar { display: none; }
-      body.mobile-show-preview .viewport { height: 100dvh; flex: 1 1 100dvh; }
-      body.mobile-show-inputs .viewport { display: none; }
-      body.mobile-show-inputs .sidebar { height: 100dvh; flex: 1 1 100dvh; }
-      body.mobile-show-inputs .sidebar-content { overflow-y: auto; }
+      body.mobile-show-preview .viewport { height: calc(100dvh - 50px); flex: 1 1 auto; }
+      body.mobile-show-inputs .sidebar { display: flex; height: 61dvh; flex: 0 0 61dvh; }
+      body.mobile-show-inputs .viewport { display: block; height: 32dvh; flex: 0 0 32dvh; }
+      body.mobile-show-inputs .sidebar-content { min-height: 0; overflow-y: auto; }
     }
     @media (max-width: 480px) {
-      .sidebar { min-height: 250px; }
+      .sidebar { min-height: 0; }
       .sidebar-header h1 { font-size: 11px; letter-spacing: .2px; }
       .cad-toolbar { justify-content: space-between; }
       .tool-btn { flex: 1 1 auto; font-size: 10px; padding: 6px 5px; }
@@ -423,7 +427,7 @@
 
   </style>
 </head>
-<body>
+<body class="mobile-show-inputs">
   <div class="mobile-view-toggle" id="mobileViewToggle">
     <button type="button" id="showInputsBtn" class="active" onclick="setMobileView('inputs')">THONG SO</button>
     <button type="button" id="showPreviewBtn" onclick="setMobileView('preview')">XEM BAN VE</button>
@@ -587,7 +591,7 @@
 
       <!-- Xuất file -->
       <div class="card" style="margin-top:auto;">
-        <div class="card-title">XUẤT BẢN VẼ KỸ THUẬT</div>
+        <div class="export-heading"><div class="card-title">XUẤT BẢN VẼ KỸ THUẬT</div><span class="author-credit">Một sản phẩm cá nhân của Phúc</span></div>
         <div class="btn-group">
           <button class="btn-cad btn-dxf" onclick="downloadDXF()">💾 Tải CAD (.DXF)</button>
           <button class="install-app-btn" id="installAppBtn" type="button">Cai dat ung dung</button>
@@ -643,6 +647,11 @@
     let isDragging = false;
     let startX = 0, startY = 0;
     let calcData = null;
+    const activePointers = new Map();
+    let pinchStartDistance = 0;
+    let pinchStartZoom = 1;
+    let pinchStartMid = null;
+    let pinchWorldPoint = null;
 
     window.onload = function() {
       setupEvents();
@@ -662,24 +671,64 @@
       });
 
       const viewport = document.getElementById('viewport');
+      const localPoint = (e) => { const r = viewport.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+      const pointDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const midpoint = (a, b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
       viewport.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.cad-toolbar') || e.target.closest('.cad-layer-table')) return;
-        isDragging = true;
-        if (viewport.setPointerCapture) viewport.setPointerCapture(e.pointerId);
-        startX = e.clientX - panX;
-        startY = e.clientY - panY;
-      });
+        activePointers.set(e.pointerId, localPoint(e));
+        try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
+        if (activePointers.size === 1) {
+          isDragging = true;
+          startX = e.clientX - panX;
+          startY = e.clientY - panY;
+        } else if (activePointers.size === 2) {
+          isDragging = false;
+          const pts = [...activePointers.values()];
+          pinchStartDistance = Math.max(1, pointDistance(pts[0], pts[1]));
+          pinchStartZoom = zoom;
+          pinchStartMid = midpoint(pts[0], pts[1]);
+          pinchWorldPoint = { x:(pinchStartMid.x-panX)/zoom, y:(pinchStartMid.y-panY)/zoom };
+        }
+        e.preventDefault();
+      }, {passive:false});
       viewport.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        panX = e.clientX - startX;
-        panY = e.clientY - startY;
-        applyTransform();
-      });
-      const stopDrag = () => { isDragging = false; };
-      viewport.addEventListener('pointerup', stopDrag);
-      viewport.addEventListener('pointercancel', stopDrag);
-      viewport.addEventListener('lostpointercapture', stopDrag);
-
+        if (!activePointers.has(e.pointerId)) return;
+        activePointers.set(e.pointerId, localPoint(e));
+        if (activePointers.size >= 2) {
+          const pts = [...activePointers.values()].slice(0,2);
+          const dist = Math.max(1, pointDistance(pts[0], pts[1]));
+          const mid = midpoint(pts[0], pts[1]);
+          zoom = Math.min(50, Math.max(0.05, pinchStartZoom * dist / pinchStartDistance));
+          // Keep the drawing point under the fingers anchored while pinching.
+          panX = mid.x - pinchWorldPoint.x * zoom;
+          panY = mid.y - pinchWorldPoint.y * zoom;
+          applyTransform();
+          e.preventDefault();
+        } else if (isDragging) {
+          panX = e.clientX - startX;
+          panY = e.clientY - startY;
+          applyTransform();
+          e.preventDefault();
+        }
+      }, {passive:false});
+      const stopPointer = (e) => {
+        activePointers.delete(e.pointerId);
+        if (activePointers.size === 1) {
+          const p = [...activePointers.values()][0];
+          isDragging = true;
+          startX = p.x - panX;
+          startY = p.y - panY;
+        } else {
+          isDragging = false;
+          pinchStartDistance = 0;
+          pinchStartMid = null;
+          pinchWorldPoint = null;
+        }
+      };
+      viewport.addEventListener('pointerup', stopPointer);
+      viewport.addEventListener('pointercancel', stopPointer);
+      viewport.addEventListener('lostpointercapture', stopPointer);
       viewport.addEventListener('wheel', (e) => {
         e.preventDefault();
         const factor = e.deltaY < 0 ? 1.15 : 0.85;
@@ -1214,13 +1263,15 @@
 
     // Chuyen nhanh giua bang thong so va vung xem tren man hinh nho.
     function setMobileView(view) {
+      // THONG SO: keep the original split layout (inputs above, drawing below).
+      // XEM BAN VE: optionally expand the drawing to full screen.
       document.body.classList.toggle('mobile-show-preview', view === 'preview');
       document.body.classList.toggle('mobile-show-inputs', view === 'inputs');
       const a = document.getElementById('showInputsBtn');
       const b = document.getElementById('showPreviewBtn');
       if (a) a.classList.toggle('active', view === 'inputs');
       if (b) b.classList.toggle('active', view === 'preview');
-      if (view === 'preview') setTimeout(() => { try { resetView(); } catch (_) {} }, 80);
+      setTimeout(() => { try { resetView(); } catch (_) {} }, 100);
     }
 
     // PWA: service worker works only on localhost or HTTPS, not from file://.
