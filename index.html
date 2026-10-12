@@ -1187,23 +1187,9 @@
         const fileName = `BanVe_Vach_${d.L}x${d.W}.png`;
         const pngFile = new File([pngBlob], fileName, { type: 'image/png' });
 
-        // iOS Safari: mở bảng Chia sẻ để người dùng chọn Lưu hình ảnh hoặc Lưu vào Tệp.
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pngFile] })) {
-          await navigator.share({ files: [pngFile], title: 'Bản vẽ kỹ thuật', text: 'Một sản phẩm cá nhân của Phúc' });
-          return;
-        }
-
-        // Android/desktop: tải trực tiếp; nếu trình duyệt chặn download, mở PNG để người dùng lưu thủ công.
-        const pngUrl = URL.createObjectURL(pngBlob);
-        const link = document.createElement('a');
-        link.href = pngUrl;
-        link.download = fileName;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(pngUrl), 60000);
-        alert('Đã tạo ảnh PNG. Nếu điện thoại chưa tự lưu ảnh, hãy mở mục Tải về/Files; trên iPhone, nếu không thấy file, nhấn Xuất Ảnh lần nữa và chọn Lưu vào Tệp trong bảng Chia sẻ.');
+        // Mobile: show a preview first. The OS share sheet is launched by a fresh tap,
+        // avoiding mobile browsers dropping the original user activation while canvas renders.
+        showDrawingSharePanel(pngBlob, pngFile, fileName);
       } catch (err) {
         if (err && err.name === 'AbortError') return; // Người dùng đóng bảng chia sẻ.
         console.error('PNG export failed:', err);
@@ -1224,6 +1210,83 @@
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         if (button) { button.disabled = false; button.textContent = oldLabel; }
       }
+    }
+
+
+    let pendingDrawingBlob = null;
+    let pendingDrawingFile = null;
+    let pendingDrawingUrl = null;
+
+    function showDrawingSharePanel(blob, file, fileName) {
+      pendingDrawingBlob = blob;
+      pendingDrawingFile = file;
+      if (pendingDrawingUrl) URL.revokeObjectURL(pendingDrawingUrl);
+      pendingDrawingUrl = URL.createObjectURL(blob);
+
+      let panel = document.getElementById('drawingSharePanel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'drawingSharePanel';
+        panel.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+        panel.innerHTML = `
+          <div style="width:min(560px,100%);max-height:92dvh;overflow:auto;background:#111827;color:#f9fafb;border:1px solid #374151;border-radius:16px;padding:16px;box-sizing:border-box;font-family:system-ui,sans-serif;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+              <strong style="font-size:17px;">Chia sẻ bản vẽ</strong>
+              <button type="button" id="closeDrawingShare" aria-label="Đóng" style="border:0;border-radius:9px;padding:8px 12px;background:#374151;color:white;font-size:18px;">✕</button>
+            </div>
+            <p style="font-size:13px;line-height:1.5;color:#cbd5e1;margin:0 0 12px;">Ảnh PNG đã tạo xong. Nhấn “Chia sẻ bản vẽ” để mở bảng chia sẻ của điện thoại, sau đó chọn Lưu hình ảnh, Lưu vào Tệp hoặc gửi qua ứng dụng khác.</p>
+            <img id="drawingSharePreview" alt="Ảnh bản vẽ kỹ thuật" style="display:block;width:100%;max-height:48dvh;object-fit:contain;background:#000;border-radius:8px;margin-bottom:14px;" />
+            <button type="button" id="shareDrawingNow" style="display:block;width:100%;border:0;border-radius:10px;padding:14px;background:#2563eb;color:white;font-weight:700;font-size:16px;margin-bottom:8px;">↗ Chia sẻ bản vẽ</button>
+            <button type="button" id="openDrawingImage" style="display:block;width:100%;border:1px solid #4b5563;border-radius:10px;padding:12px;background:#1f2937;color:white;font-size:15px;margin-bottom:8px;">Mở ảnh riêng để lưu</button>
+            <button type="button" id="downloadDrawingFile" style="display:block;width:100%;border:1px solid #4b5563;border-radius:10px;padding:12px;background:transparent;color:#e5e7eb;font-size:15px;">Tải file PNG</button>
+          </div>`;
+        document.body.appendChild(panel);
+        panel.querySelector('#closeDrawingShare').addEventListener('click', () => panel.remove());
+        panel.querySelector('#shareDrawingNow').addEventListener('click', sharePendingDrawing);
+        panel.querySelector('#openDrawingImage').addEventListener('click', openPendingDrawingImage);
+        panel.querySelector('#downloadDrawingFile').addEventListener('click', downloadPendingDrawing);
+        panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
+      }
+      panel.querySelector('#drawingSharePreview').src = pendingDrawingUrl;
+      panel.querySelector('#downloadDrawingFile').setAttribute('data-filename', fileName);
+      panel.style.display = 'flex';
+    }
+
+    async function sharePendingDrawing() {
+      if (!pendingDrawingFile) return;
+      try {
+        if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [pendingDrawingFile] }))) {
+          await navigator.share({ files: [pendingDrawingFile], title: 'Bản vẽ kỹ thuật', text: 'Một sản phẩm cá nhân của Phúc' });
+        } else {
+          openPendingDrawingImage();
+          alert('Trình duyệt này chưa hỗ trợ chia sẻ trực tiếp file ảnh. Ảnh đã mở riêng; hãy dùng menu Chia sẻ hoặc nhấn giữ ảnh để lưu.');
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') {
+          console.error('Share drawing failed:', err);
+          alert('Không mở được bảng chia sẻ. Hãy chọn “Mở ảnh riêng để lưu”.');
+        }
+      }
+    }
+
+    function openPendingDrawingImage() {
+      if (!pendingDrawingUrl) return;
+      const win = window.open(pendingDrawingUrl, '_blank');
+      if (!win) window.location.href = pendingDrawingUrl;
+    }
+
+    function downloadPendingDrawing() {
+      if (!pendingDrawingBlob) return;
+      const filename = document.querySelector('#downloadDrawingFile')?.getAttribute('data-filename') || 'BanVe_Vach.png';
+      const url = pendingDrawingUrl || URL.createObjectURL(pendingDrawingBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      alert('Đã gửi yêu cầu tải PNG. Nếu điện thoại không lưu tự động, hãy dùng “Chia sẻ bản vẽ” hoặc “Mở ảnh riêng để lưu”.');
     }
 
     function dataURLToBlob(dataURL) {
