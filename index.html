@@ -1116,24 +1116,28 @@
     // =========================================================
     // XUẤT ẢNH BẢN VẼ: RENDER TRỰC TIẾP SVG (CHÍNH XÁC 100%)
     // =========================================================
-    function captureAndShareLayout() {
-      if (!calcData || !calcData.valid) return;
+    async function captureAndShareLayout() {
+      if (!calcData || !calcData.valid) {
+        alert('Vui lòng nhập thông số hợp lệ trước khi xuất ảnh bản vẽ.');
+        return;
+      }
       const d = calcData;
+      const button = document.querySelector('.btn-snapshot');
+      const oldLabel = button ? button.textContent : '';
+      if (button) { button.disabled = true; button.textContent = '⏳ Đang tạo ảnh...'; }
 
-      // Tính toán khung bao chính xác của bản vẽ
+      // Dùng viewBox theo tọa độ bản vẽ, không phụ thuộc mức zoom/pan đang xem trên điện thoại.
       const sheetPad = 70;
       const minX = -sheetPad - 30;
       const minY = -sheetPad;
-      const sheetW = d.L + sheetPad * 2 + 60;
-      const sheetH = d.W + sheetPad * 2 + 50;
-
-      // Lấy nội dung SVG hiện hành
+      const sheetW = Math.max(1, d.L + sheetPad * 2 + 60);
+      const sheetH = Math.max(1, d.W + sheetPad * 2 + 50);
       const drawMarkup = document.getElementById('drawGroup').innerHTML;
       const dimMarkup = document.getElementById('dimGraphicGroup').innerHTML;
-
-      // Tạo chuỗi SVG độc lập có nền lưới CAD và giữ nguyên 100% tọa độ
+      const pixelW = Math.max(1200, Math.min(4096, Math.round(sheetW * 2)));
+      const pixelH = Math.max(900, Math.min(4096, Math.round(sheetH * 2)));
       const svgString = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${sheetW * 2}" height="${sheetH * 2}" viewBox="${minX} ${minY} ${sheetW} ${sheetH}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="${pixelW}" height="${pixelH}" viewBox="${minX} ${minY} ${sheetW} ${sheetH}">
           <defs>
             <pattern id="gridMinor_exp" width="20" height="20" patternUnits="userSpaceOnUse">
               <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0a0d14" stroke-width="0.5"/>
@@ -1145,30 +1149,90 @@
           </defs>
           <rect x="${minX}" y="${minY}" width="${sheetW}" height="${sheetH}" fill="#000000"/>
           <rect x="${minX}" y="${minY}" width="${sheetW}" height="${sheetH}" fill="url(#gridMajor_exp)"/>
-          <g font-family="Consolas, 'Courier New', monospace">${drawMarkup}</g>
-          <g font-family="Consolas, 'Courier New', monospace">${dimMarkup}</g>
-        </svg>
-      `;
+          <g font-family="Consolas, Courier New, monospace">${drawMarkup}</g>
+          <g font-family="Consolas, Courier New, monospace">${dimMarkup}</g>
+        </svg>`;
 
-      // Chuyển SVG sang Image và vẽ lên Canvas tải về
-      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
+      let objectUrl = null;
+      let pngBlob = null;
+      try {
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        objectUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.decoding = 'sync';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('Không thể dựng hình bản vẽ thành ảnh.'));
+          img.src = objectUrl;
+        });
 
-      img.onload = function() {
         const canvas = document.createElement('canvas');
-        canvas.width = sheetW * 2;
-        canvas.height = sheetH * 2;
+        canvas.width = pixelW;
+        canvas.height = pixelH;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        if (!ctx) throw new Error('Trình duyệt không hỗ trợ tạo ảnh.');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, pixelW, pixelH);
+        ctx.drawImage(img, 0, 0, pixelW, pixelH);
+        pngBlob = await new Promise((resolve, reject) => {
+          if (canvas.toBlob) {
+            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Không tạo được file PNG.')), 'image/png');
+          } else {
+            try {
+              const data = canvas.toDataURL('image/png');
+              resolve(dataURLToBlob(data));
+            } catch (e) { reject(e); }
+          }
+        });
+        const fileName = `BanVe_Vach_${d.L}x${d.W}.png`;
+        const pngFile = new File([pngBlob], fileName, { type: 'image/png' });
 
-        URL.revokeObjectURL(url);
+        // iOS Safari: mở bảng Chia sẻ để người dùng chọn Lưu hình ảnh hoặc Lưu vào Tệp.
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pngFile] })) {
+          await navigator.share({ files: [pngFile], title: 'Bản vẽ kỹ thuật', text: 'Một sản phẩm cá nhân của Phúc' });
+          return;
+        }
+
+        // Android/desktop: tải trực tiếp; nếu trình duyệt chặn download, mở PNG để người dùng lưu thủ công.
+        const pngUrl = URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
-        link.download = `BanVe_Vach_${d.L}x${d.W}.png`;
-        link.href = canvas.toDataURL('image/png');
+        link.href = pngUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
         link.click();
-      };
-      img.src = url;
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(pngUrl), 60000);
+        alert('Đã tạo ảnh PNG. Nếu điện thoại chưa tự lưu ảnh, hãy mở mục Tải về/Files; trên iPhone, nếu không thấy file, nhấn Xuất Ảnh lần nữa và chọn Lưu vào Tệp trong bảng Chia sẻ.');
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // Người dùng đóng bảng chia sẻ.
+        console.error('PNG export failed:', err);
+        try {
+          // Fallback cuối cùng: hiển thị ảnh trong tab mới để lưu thủ công.
+          if (typeof pngBlob !== 'undefined' && pngBlob) {
+            const fallbackUrl = URL.createObjectURL(pngBlob);
+            const win = window.open(fallbackUrl, '_blank');
+            if (!win) window.location.href = fallbackUrl;
+            alert('Ảnh đã được tạo nhưng trình duyệt không cho tải tự động. Ảnh đã mở riêng; nhấn giữ ảnh để lưu hoặc chọn Chia sẻ.');
+          } else {
+            alert('Chưa xuất được ảnh. Hãy thử lại; nếu đang dùng iPhone, mở website bằng Safari và thử lại.');
+          }
+        } catch (fallbackErr) {
+          alert('Chưa xuất được ảnh. Hãy thử lại bằng Safari trên iPhone hoặc Chrome trên Android.');
+        }
+      } finally {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        if (button) { button.disabled = false; button.textContent = oldLabel; }
+      }
+    }
+
+    function dataURLToBlob(dataURL) {
+      const parts = dataURL.split(',');
+      const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+      const binary = atob(parts[1]);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
     }
 
     // ==========================================
