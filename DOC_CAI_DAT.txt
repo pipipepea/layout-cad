@@ -1,0 +1,15 @@
+HUONG DAN CAI DAT UNG DUNG VACH CHIA O
+
+1) Ung dung PWA can duoc dua len mot dia chi HTTPS (vi du hosting tinh co HTTPS).
+   Mo file index.html truc tiep bang file:// thi khong the cai dat PWA day du.
+2) Tai len TOAN BO noi dung trong thu muc nay, giu nguyen cau truc:
+   index.html
+   manifest.webmanifest
+   sw.js
+   icons/icon-192.png
+   icons/icon-512.png
+3) iPhone: mo dia chi HTTPS bang Safari > Chia se > Them vao man hinh chinh.
+4) Android: mo dia chi HTTPS bang Chrome > menu 3 cham > Cai dat ung dung / Them vao man hinh chinh.
+5) Sau khi cai dat, co the mo giao dien nhu ung dung. Xuat DXF se tai file ve may; de chinh sua can ung dung CAD tuong thich.
+
+Luu y: khong the cai PWA day du chi bang cach mo HTML tu thu muc Downloads. Can HTTPS hoac localhost.

@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050608">
+  <meta name="description" content="Cong cu thiet ke he vach chia o, xem truoc ban ve va xuat DXF 1:1.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vach Chia O">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>Bản Vẽ Kỹ Thuật Hệ Vách Chia Ô Tự Động</title>
+  <style>
+    :root {
+      --bg-main: #050608;
+      --bg-panel: #0d0f15;
+      --bg-card: #131722;
+      --border: #232736;
+      --cad-grid-major: #1b202e;
+      --cad-grid-minor: #0e121a;
+      
+      /* Hệ màu Layer AutoCAD ACI */
+      --cad-white: #ffffff;
+      --cad-cyan: #00e5ff;
+      --cad-yellow: #ffd700;
+      --cad-dim: #94a3b8;
+      --cad-magenta: #e040fb;
+      --text-sub: #7b889e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Consolas, "Courier New", "ISOCPEUR", monospace;
+      background-color: var(--bg-main);
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* =========================================================
+       SIDEBAR ĐIỀU KHIỂN
+       ========================================================= */
+    .sidebar {
+      width: 410px;
+      min-width: 390px;
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 20;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.8);
+    }
+
+    .sidebar-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #090a10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sidebar-header h1 {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #60a5fa;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sidebar-content::-webkit-scrollbar { width: 5px; }
+    .sidebar-content::-webkit-scrollbar-thumb { background: #262c3e; border-radius: 4px; }
+
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #93c5fd;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-bottom: 1px dashed #24293c;
+      padding-bottom: 4px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .param-box {
+      background: #080a10;
+      border: 1px solid #232738;
+      border-radius: 4px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .param-box:focus-within {
+      border-color: #3b82f6;
+    }
+    .param-label {
+      font-size: 10.5px;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+    }
+    .param-control {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-step {
+      width: 26px;
+      height: 26px;
+      background: #171b26;
+      border: 1px solid #2f364a;
+      color: #cbd5e1;
+      border-radius: 3px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-step:hover {
+      background: #252c40;
+      color: #fff;
+      border-color: #60a5fa;
+    }
+
+    input.param-input {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      font-family: inherit;
+    }
+
+    select.mode-select {
+      width: 100%;
+      background: #080a10;
+      border: 1px solid #232738;
+      color: #93c5fa;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 8px;
+    }
+
+    .check-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+
+    .result-box {
+      background: #080a10;
+      border-left: 3px solid var(--cad-cyan);
+      padding: 8px 10px;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .res-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+    }
+    .res-label { color: var(--text-sub); }
+    .res-val { font-weight: 700; color: #34d399; }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn-cad {
+      background: #171b26;
+      border: 1px solid #2f364a;
+      color: #e2e8f0;
+      padding: 9px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-cad:hover { border-color: #60a5fa; color: #fff; }
+    .btn-dxf {
+      background: linear-gradient(135deg, #059669, #047857);
+      border-color: #10b981;
+      color: #fff;
+    }
+
+    /* =========================================================
+       VIEWPORT CAD
+       ========================================================= */
+    .viewport {
+      flex: 1;
+      position: relative;
+      background: #000000;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .cad-toolbar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: rgba(13, 15, 21, 0.92);
+      border: 1px solid var(--border);
+      padding: 4px 6px;
+      border-radius: 4px;
+      display: flex;
+      gap: 5px;
+      z-index: 15;
+    }
+    .tool-btn {
+      background: #080a10;
+      border: 1px solid #232738;
+      color: #cbd5e1;
+      padding: 5px 9px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tool-btn:hover { background: #1c2232; color: #fff; }
+    .btn-snapshot {
+      background: #1d4ed8;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+
+    #cadCanvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      display: block;
+    }
+    #cadCanvas:active { cursor: grabbing; }
+
+    .cad-layer-table {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(8, 10, 16, 0.9);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 15;
+    }
+    .layer-item { display: flex; align-items: center; gap: 6px; color: var(--text-sub); }
+    .layer-color { width: 12px; height: 3px; }
+
+    /* Mobile/tablet + touch improvements */
+    html { height: 100%; }
+    body {
+      min-height: 100%;
+      min-height: 100dvh;
+      height: 100dvh;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, input, select { touch-action: manipulation; }
+    input, select { font-size: 16px; } /* prevent iOS auto-zoom on focus */
+    .btn-cad, .tool-btn, .btn-step {
+      min-height: 42px;
+      touch-action: manipulation;
+    }
+    .viewport, #cadCanvas { touch-action: none; }
+    #cadCanvas { -webkit-user-select: none; user-select: none; }
+    .sidebar { flex: 0 0 410px; }
+    .viewport { min-width: 0; min-height: 260px; }
+    .install-app-btn {
+      display: none;
+      width: 100%;
+      margin-top: 8px;
+      padding: 11px 12px;
+      border: 1px solid #3b82f6;
+      border-radius: 6px;
+      background: #1d4ed8;
+      color: #fff;
+      font: 700 13px Consolas, "Courier New", monospace;
+    }
+    .install-app-btn.visible { display: block; }
+    .mobile-view-toggle {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding: 8px;
+      gap: 8px;
+      background: #090a10;
+      border-bottom: 1px solid var(--border);
+    }
+    .mobile-view-toggle button {
+      flex: 1;
+      min-height: 42px;
+      color: #e2e8f0;
+      background: #171b26;
+      border: 1px solid #2f364a;
+      border-radius: 6px;
+      font: 700 12px Consolas, "Courier New", monospace;
+    }
+    .mobile-view-toggle button.active {
+      background: #064e3b;
+      border-color: #10b981;
+    }
+    @media (max-width: 900px) {
+      body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        height: 48dvh;
+        min-height: 270px;
+        flex: 0 0 48dvh;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 20px rgba(0,0,0,.55);
+      }
+      .sidebar-header { padding: 10px 12px; }
+      .sidebar-header h1 { font-size: 12px; }
+      .sidebar-content {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+        gap: 10px;
+      }
+      .viewport { width: 100%; height: 52dvh; flex: 1 1 52dvh; }
+      .cad-toolbar {
+        top: 8px; right: 8px; left: 8px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        padding: 5px;
+        gap: 5px;
+      }
+      .tool-btn { min-height: 40px; padding: 7px 9px; font-size: 11px; }
+      .cad-layer-table {
+        left: 8px; bottom: calc(8px + env(safe-area-inset-bottom));
+        max-width: calc(100% - 16px);
+        font-size: 10px;
+      }
+      .btn-cad { min-height: 46px; font-size: 12px; }
+      .mobile-view-toggle { display: flex; }
+      body.mobile-show-preview .sidebar { display: none; }
+      body.mobile-show-preview .viewport { height: 100dvh; flex: 1 1 100dvh; }
+      body.mobile-show-inputs .viewport { display: none; }
+      body.mobile-show-inputs .sidebar { height: 100dvh; flex: 1 1 100dvh; }
+      body.mobile-show-inputs .sidebar-content { overflow-y: auto; }
+    }
+    @media (max-width: 480px) {
+      .sidebar { min-height: 250px; }
+      .sidebar-header h1 { font-size: 11px; letter-spacing: .2px; }
+      .cad-toolbar { justify-content: space-between; }
+      .tool-btn { flex: 1 1 auto; font-size: 10px; padding: 6px 5px; }
+      .cad-layer-table { display: none; }
+      .btn-group { grid-template-columns: 1fr; }
+      .res-row { font-size: 12px; }
+      .res-val { margin-left: 8px; text-align: right; }
+    }
+    @media (orientation: landscape) and (max-width: 900px) {
+      body { flex-direction: row; }
+      .sidebar {
+        width: 44vw; min-width: 280px; max-width: 390px;
+        height: 100dvh; flex: 0 0 44vw;
+        border-right: 1px solid var(--border); border-bottom: 0;
+      }
+      .viewport { height: 100dvh; flex: 1 1 auto; }
+      .mobile-view-toggle { display: none; }
+      body.mobile-show-preview .sidebar { display: flex; }
+      body.mobile-show-inputs .viewport { display: block; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="mobile-view-toggle" id="mobileViewToggle">
+    <button type="button" id="showInputsBtn" class="active" onclick="setMobileView('inputs')">THONG SO</button>
+    <button type="button" id="showPreviewBtn" onclick="setMobileView('preview')">XEM BAN VE</button>
+  </div>
+
+  <!-- SIDEBAR: BẢNG THIẾT LẬP KÍCH THƯỚC -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>📐 THÔNG SỐ VÁCH CAD</h1>
+      <span style="font-size:10px; color:#34d399; font-weight:700;">ISO STANDARD</span>
+    </div>
+
+    <div class="sidebar-content">
+
+      <!-- 1. Kích thước tổng L x W -->
+      <div class="card">
+        <div class="card-title">1. KÍCH THƯỚC PHỦ BÌ (L × W)</div>
+        <div class="grid-2">
+          <div class="param-box">
+            <span class="param-label">Dài L <i>(mm)</i></span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('dimL', -10)">-</button>
+              <input type="number" id="dimL" class="param-input" value="600" min="10" step="1">
+              <button class="btn-step" onclick="stepVal('dimL', 10)">+</button>
+            </div>
+          </div>
+          <div class="param-box">
+            <span class="param-label">Rộng W <i>(mm)</i></span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('dimW', -10)">-</button>
+              <input type="number" id="dimW" class="param-input" value="400" min="10" step="1">
+              <button class="btn-step" onclick="stepVal('dimW', 10)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Offset biên -->
+      <div class="card">
+        <div class="card-title">2. KHOẢNG LÙI BIÊN (OFFSET)</div>
+        <div class="grid-2">
+          <div class="param-box">
+            <span class="param-label">Offset Dài X</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('offX', -1)">-</button>
+              <input type="number" id="offX" class="param-input" value="20" min="0" step="0.5">
+              <button class="btn-step" onclick="stepVal('offX', 1)">+</button>
+            </div>
+          </div>
+          <div class="param-box">
+            <span class="param-label">Offset Rộng Y</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('offY', -1)">-</button>
+              <input type="number" id="offY" class="param-input" value="20" min="0" step="0.5">
+              <button class="btn-step" onclick="stepVal('offY', 1)">+</button>
+            </div>
+          </div>
+        </div>
+        <label class="check-line">
+          <input type="checkbox" id="lockOffset" checked onchange="handleLockOffset()">
+          Khóa Offset đều 4 phía (X = Y)
+        </label>
+      </div>
+
+      <!-- 3. Độ dày vách ngoài -->
+      <div class="card">
+        <div class="card-title">3. ĐỘ DÀY VÁCH BIÊN NGOÀI</div>
+        <div class="grid-2">
+          <div class="param-box">
+            <span class="param-label">Cạnh Dọc (X)</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('tOuterX', -0.5)">-</button>
+              <input type="number" id="tOuterX" class="param-input" value="4" min="0" step="0.1">
+              <button class="btn-step" onclick="stepVal('tOuterX', 0.5)">+</button>
+            </div>
+          </div>
+          <div class="param-box">
+            <span class="param-label">Cạnh Ngang (Y)</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('tOuterY', -0.5)">-</button>
+              <input type="number" id="tOuterY" class="param-input" value="4" min="0" step="0.1">
+              <button class="btn-step" onclick="stepVal('tOuterY', 0.5)">+</button>
+            </div>
+          </div>
+        </div>
+        <label class="check-line">
+          <input type="checkbox" id="lockOuterWall" checked onchange="handleLockOuter()">
+          Khóa vách ngoài đều (X = Y)
+        </label>
+      </div>
+
+      <!-- 4. Độ dày vách trong -->
+      <div class="card">
+        <div class="card-title">4. ĐỘ DÀY VÁCH NGĂN TRONG</div>
+        <div class="grid-2">
+          <div class="param-box">
+            <span class="param-label">Vách Dọc (X)</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('tInnerX', -0.5)">-</button>
+              <input type="number" id="tInnerX" class="param-input" value="3" min="0" step="0.1">
+              <button class="btn-step" onclick="stepVal('tInnerX', 0.5)">+</button>
+            </div>
+          </div>
+          <div class="param-box">
+            <span class="param-label">Vách Ngang (Y)</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('tInnerY', -0.5)">-</button>
+              <input type="number" id="tInnerY" class="param-input" value="3" min="0" step="0.1">
+              <button class="btn-step" onclick="stepVal('tInnerY', 0.5)">+</button>
+            </div>
+          </div>
+        </div>
+        <label class="check-line">
+          <input type="checkbox" id="lockInnerWall" checked onchange="handleLockInner()">
+          Khóa vách trong đều (X = Y)
+        </label>
+      </div>
+
+      <!-- 5. Chia ô -->
+      <div class="card">
+        <div class="card-title">5. CHIA Ô & PHÂN VÙNG</div>
+        <select id="splitMode" class="mode-select" onchange="switchMode()">
+          <option value="cells">Chế độ: SỐ LƯỢNG Ô (Dài × Rộng)</option>
+          <option value="walls">Chế độ: SỐ VÁCH NGĂN TRONG</option>
+        </select>
+        <div class="grid-2">
+          <div class="param-box">
+            <span class="param-label" id="lblX">Số ô Dài</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('valX', -1)">-</button>
+              <input type="number" id="valX" class="param-input" value="5" min="1" step="1">
+              <button class="btn-step" onclick="stepVal('valX', 1)">+</button>
+            </div>
+          </div>
+          <div class="param-box">
+            <span class="param-label" id="lblY">Số ô Rộng</span>
+            <div class="param-control">
+              <button class="btn-step" onclick="stepVal('valY', -1)">-</button>
+              <input type="number" id="valY" class="param-input" value="3" min="1" step="1">
+              <button class="btn-step" onclick="stepVal('valY', 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tóm tắt kết quả -->
+      <div class="result-box">
+        <div class="res-row">
+          <span class="res-label">Tổng số ô tạo thành:</span>
+          <span class="res-val" id="resTotalCells">15 ô (5 × 3)</span>
+        </div>
+        <div class="res-row">
+          <span class="res-label">Hệ vách ngăn:</span>
+          <span class="res-val" id="resTotalWalls">4 dọc × 2 ngang</span>
+        </div>
+        <div class="res-row" style="margin-top:2px; padding-top:4px; border-top:1px dashed #232738;">
+          <span class="res-label">Lọt lòng 1 ô:</span>
+          <span class="res-val" id="resCellSize" style="font-size:13px; color:var(--cad-yellow);">0 × 0 mm</span>
+        </div>
+      </div>
+
+      <!-- Xuất file -->
+      <div class="card" style="margin-top:auto;">
+        <div class="card-title">XUẤT BẢN VẼ KỸ THUẬT</div>
+        <div class="btn-group">
+          <button class="btn-cad btn-dxf" onclick="downloadDXF()">💾 Tải CAD (.DXF)</button>
+          <button class="install-app-btn" id="installAppBtn" type="button">Cai dat ung dung</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEWPORT BẢN VẼ KỸ THUẬT -->
+  <div class="viewport" id="viewport">
+    
+    <div class="cad-toolbar">
+      <button class="tool-btn btn-snapshot" onclick="captureAndShareLayout()">📸 Xuất Ảnh Bản Vẽ (PNG)</button>
+      <button class="tool-btn" onclick="resetView()">🔎 Zoom Fit</button>
+      <button class="tool-btn" onclick="zoomView(1.2)">➕</button>
+      <button class="tool-btn" onclick="zoomView(0.8)">➖</button>
+    </div>
+
+    <svg id="cadCanvas">
+      <defs>
+        <!-- Lưới nền cơ khí CAD -->
+        <pattern id="cadGridMinor" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0a0d14" stroke-width="0.5"/>
+        </pattern>
+        <pattern id="cadGridMajor" width="100" height="100" patternUnits="userSpaceOnUse">
+          <rect width="100" height="100" fill="url(#cadGridMinor)"/>
+          <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#131826" stroke-width="0.8"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="#000000"/>
+      <rect width="100%" height="100%" fill="url(#cadGridMajor)"/>
+
+      <!-- Nhóm vẽ chính -->
+      <g id="drawGroup"></g>
+      <g id="dimGraphicGroup"></g>
+    </svg>
+
+    <!-- Bảng Layer -->
+    <div class="cad-layer-table">
+      <div class="layer-item"><span class="layer-color" style="background:#ffffff;"></span> Layer: VIEN_PHU_BI (0.35mm)</div>
+      <div class="layer-item"><span class="layer-color" style="background:#ffd700; border-top:1px dashed #ffd700;"></span> Layer: DUONG_OFFSET (0.18mm)</div>
+      <div class="layer-item"><span class="layer-color" style="background:#00e5ff;"></span> Layer: HE_THONG_VACH (0.25mm)</div>
+      <div class="layer-item"><span class="layer-color" style="background:#94a3b8;"></span> Layer: KICH_THUOC_DIM (0.13mm)</div>
+    </div>
+
+  </div>
+
+  <script>
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let calcData = null;
+
+    window.onload = function() {
+      setupEvents();
+      renderAll(true);
+    };
+
+    function setupEvents() {
+      const inputs = document.querySelectorAll('.sidebar input, .sidebar select');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          if (input.id === 'offX' && document.getElementById('lockOffset').checked) {
+            document.getElementById('offY').value = input.value;
+          }
+          handleWallSync(input.id);
+          renderAll();
+        });
+      });
+
+      const viewport = document.getElementById('viewport');
+      viewport.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.cad-toolbar') || e.target.closest('.cad-layer-table')) return;
+        isDragging = true;
+        if (viewport.setPointerCapture) viewport.setPointerCapture(e.pointerId);
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+      });
+      viewport.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        applyTransform();
+      });
+      const stopDrag = () => { isDragging = false; };
+      viewport.addEventListener('pointerup', stopDrag);
+      viewport.addEventListener('pointercancel', stopDrag);
+      viewport.addEventListener('lostpointercapture', stopDrag);
+
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.15 : 0.85;
+        zoom = Math.min(50, Math.max(0.05, zoom * factor));
+        applyTransform();
+      }, { passive: false });
+    }
+
+    function stepVal(id, step) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let val = parseFloat(el.value) || 0;
+      val = Math.max(parseFloat(el.min) || 0, val + step);
+      el.value = Number.isInteger(val) ? val : parseFloat(val.toFixed(2));
+      
+      if (id === 'offX' && document.getElementById('lockOffset').checked) {
+        document.getElementById('offY').value = el.value;
+      }
+      handleWallSync(id);
+      renderAll();
+    }
+
+    function handleWallSync(changedId) {
+      if (document.getElementById('lockOuterWall').checked) {
+        if (changedId === 'tOuterX') document.getElementById('tOuterY').value = document.getElementById('tOuterX').value;
+        else if (changedId === 'tOuterY') document.getElementById('tOuterX').value = document.getElementById('tOuterY').value;
+      }
+      if (document.getElementById('lockInnerWall').checked) {
+        if (changedId === 'tInnerX') document.getElementById('tInnerY').value = document.getElementById('tInnerX').value;
+        else if (changedId === 'tInnerY') document.getElementById('tInnerX').value = document.getElementById('tInnerY').value;
+      }
+    }
+
+    function handleLockOuter() {
+      if (document.getElementById('lockOuterWall').checked) {
+        document.getElementById('tOuterY').value = document.getElementById('tOuterX').value;
+        renderAll();
+      }
+    }
+
+    function handleLockInner() {
+      if (document.getElementById('lockInnerWall').checked) {
+        document.getElementById('tInnerY').value = document.getElementById('tInnerX').value;
+        renderAll();
+      }
+    }
+
+    function handleLockOffset() {
+      if (document.getElementById('lockOffset').checked) {
+        document.getElementById('offY').value = document.getElementById('offX').value;
+        renderAll();
+      }
+    }
+
+    function switchMode() {
+      const mode = document.getElementById('splitMode').value;
+      const lblX = document.getElementById('lblX');
+      const lblY = document.getElementById('lblY');
+      if (mode === 'cells') {
+        lblX.innerText = "Số ô Dài";
+        lblY.innerText = "Số ô Rộng";
+      } else {
+        lblX.innerText = "Vách Dọc";
+        lblY.innerText = "Vách Ngang";
+      }
+      renderAll();
+    }
+
+    function calculate() {
+      const readNumber = (id) => {
+        const raw = document.getElementById(id).value.trim();
+        return raw === '' ? NaN : Number(raw);
+      };
+
+      const L = readNumber('dimL'), W = readNumber('dimW');
+      const offX = readNumber('offX'), offY = readNumber('offY');
+      const tOuterX = readNumber('tOuterX'), tOuterY = readNumber('tOuterY');
+      const tInnerX = readNumber('tInnerX'), tInnerY = readNumber('tInnerY');
+      const mode = document.getElementById('splitMode').value;
+      const rawX = readNumber('valX'), rawY = readNumber('valY');
+      const errors = [];
+
+      if (!Number.isFinite(L) || L <= 0) errors.push('L > 0');
+      if (!Number.isFinite(W) || W <= 0) errors.push('W > 0');
+      if (!Number.isFinite(offX) || offX < 0) errors.push('OffX >= 0');
+      if (!Number.isFinite(offY) || offY < 0) errors.push('OffY >= 0');
+      if (!Number.isFinite(tOuterX) || tOuterX < 0) errors.push('tOuterX >= 0');
+      if (!Number.isFinite(tOuterY) || tOuterY < 0) errors.push('tOuterY >= 0');
+      if (!Number.isFinite(tInnerX) || tInnerX < 0) errors.push('tInnerX >= 0');
+      if (!Number.isFinite(tInnerY) || tInnerY < 0) errors.push('tInnerY >= 0');
+
+      if (!Number.isFinite(rawX) || rawX < 1 || !Number.isInteger(rawX)) errors.push('Số ô/vách theo chiều dài phải là số nguyên >= 1');
+      if (!Number.isFinite(rawY) || rawY < 1 || !Number.isInteger(rawY)) errors.push('Số ô/vách theo chiều rộng phải là số nguyên >= 1');
+      const valX = Number.isFinite(rawX) && rawX >= 1 ? Math.floor(rawX) : 1;
+      const valY = Number.isFinite(rawY) && rawY >= 1 ? Math.floor(rawY) : 1;
+      let nx = valX, ny = valY, vx = valX - 1, vy = valY - 1;
+      if (mode === 'walls') { vx = valX; vy = valY; nx = vx + 1; ny = vy + 1; }
+
+      const safeL = Number.isFinite(L) ? L : 0;
+      const safeW = Number.isFinite(W) ? W : 0;
+      const safeOffX = Number.isFinite(offX) ? offX : 0;
+      const safeOffY = Number.isFinite(offY) ? offY : 0;
+      const safeOuterX = Number.isFinite(tOuterX) ? tOuterX : 0;
+      const safeOuterY = Number.isFinite(tOuterY) ? tOuterY : 0;
+      const safeInnerX = Number.isFinite(tInnerX) ? tInnerX : 0;
+      const safeInnerY = Number.isFinite(tInnerY) ? tInnerY : 0;
+
+      const gridTotalL = safeL - 2 * safeOffX;
+      const gridTotalW = safeW - 2 * safeOffY;
+
+      const cellL = nx > 0 ? (gridTotalL - 2 * safeOuterX - vx * safeInnerX) / nx : 0;
+      const cellW = ny > 0 ? (gridTotalW - 2 * safeOuterY - vy * safeInnerY) / ny : 0;
+
+      const valid = errors.length === 0 && cellL > 0 && cellW > 0;
+      return {
+        L: safeL, W: safeW, offX: safeOffX, offY: safeOffY,
+        tOuterX: safeOuterX, tOuterY: safeOuterY,
+        tInnerX: safeInnerX, tInnerY: safeInnerY,
+        nx, ny, vx, vy, gridTotalL, gridTotalW, cellL, cellW, valid
+      };
+    }
+
+    function renderAll(autoFit = false) {
+      calcData = calculate();
+      const d = calcData;
+
+      document.getElementById('resTotalCells').innerText = `${d.nx * d.ny} ô (${d.nx} × ${d.ny})`;
+      document.getElementById('resTotalWalls').innerText = `${d.vx} dọc × ${d.vy} ngang`;
+      const resCell = document.getElementById('resCellSize');
+
+      if (!d.valid) {
+        resCell.innerText = 'Thông số không hợp lệ';
+        resCell.title = 'Kiểm tra kích thước, offset, độ dày vách và số ô/vách (số nguyên dương).';
+      } else {
+        resCell.innerText = `${d.cellL.toFixed(2)} × ${d.cellW.toFixed(2)} mm`;
+        resCell.title = '';
+      }
+
+      drawSVG(d);
+      if (autoFit) resetView();
+    }
+
+    function buildGeometry(d) {
+      const shapes = [];
+      const rect = (layer, x, y, w, h, kind = 'partition') => {
+        if (w <= 0 || h <= 0) return;
+        shapes.push({ layer, x, y, w, h, kind });
+      };
+
+      // 1. Phủ bì
+      rect('VIEN_PHU_BI', 0, 0, d.L, d.W, 'outline');
+
+      // 2. Đường Offset
+      if (d.offX > 0 || d.offY > 0) {
+        rect('DUONG_OFFSET', d.offX, d.offY, d.gridTotalL, d.gridTotalW, 'offset');
+      }
+
+      const x0 = d.offX, y0 = d.offY;
+      const innerL = d.gridTotalL - 2 * d.tOuterX;
+      const innerW = d.gridTotalW - 2 * d.tOuterY;
+
+      // 3. Vách biên ngoài
+      if (d.tOuterX > 0 || d.tOuterY > 0) {
+        rect('VACH_BIEN', x0, y0, d.gridTotalL, d.gridTotalW, 'perimeter');
+        rect('VACH_BIEN', x0 + d.tOuterX, y0 + d.tOuterY, innerL, innerW, 'perimeter-inner');
+      }
+
+      // 4. Vách ngăn trong DỌC
+      let x = x0 + d.tOuterX;
+      for (let i = 0; i < d.vx; i++) {
+        x += d.cellL;
+        rect('VACH_DOC', x, y0 + d.tOuterY, d.tInnerX, innerW, 'partition');
+        x += d.tInnerX;
+      }
+
+      // 5. Vách ngăn trong NGANG
+      let y = y0 + d.tOuterY;
+      for (let j = 0; j < d.vy; j++) {
+        y += d.cellW;
+        rect('VACH_NGANG', x0 + d.tOuterX, y, innerL, d.tInnerY, 'partition');
+        y += d.tInnerY;
+      }
+      return shapes;
+    }
+
+    function drawSVG(d) {
+      const g = document.getElementById('drawGroup');
+      const gDim = document.getElementById('dimGraphicGroup');
+      if (!d.valid) {
+        g.innerHTML = '';
+        gDim.innerHTML = '';
+        return;
+      }
+
+      // 1. Vẽ nét hình học
+      let markup = '';
+      for (const s of buildGeometry(d)) {
+        if (s.kind === 'outline') {
+          markup += `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="none" stroke="#ffffff" stroke-width="1.8" />`;
+        } else if (s.kind === 'offset') {
+          markup += `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="none" stroke="#ffd700" stroke-width="0.9" stroke-dasharray="6,4" opacity="0.9" />`;
+        } else if (s.kind === 'partition') {
+          markup += `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="rgba(0, 229, 255, 0.15)" stroke="#00e5ff" stroke-width="1.2" />`;
+        } else {
+          markup += `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="none" stroke="#00e5ff" stroke-width="1.2" />`;
+        }
+      }
+
+      // 2. KÍCH THƯỚC Ô LỌT LÒNG GÓC TRÊN BÊN TRÁI
+      const innerX = d.offX + d.tOuterX;
+      const firstCellCenterX = innerX + d.cellL / 2;
+      const firstCellCenterY = d.offY + d.tOuterY + d.cellW / 2;
+      const fontSize = Math.max(8, Math.min(18, Math.min(d.cellL, d.cellW) * 0.16));
+
+      markup += `
+        <rect x="${innerX + 1.5}" y="${d.offY + d.tOuterY + 1.5}" width="${d.cellL - 3}" height="${d.cellW - 3}" fill="rgba(255, 215, 0, 0.05)" stroke="rgba(255, 215, 0, 0.3)" stroke-width="0.8" stroke-dasharray="4,2"/>
+        <text x="${firstCellCenterX}" y="${firstCellCenterY}" fill="#ffd700" font-size="${fontSize}" font-family="Consolas, 'Courier New', monospace" font-weight="700" letter-spacing="0.5px" text-anchor="middle" dominant-baseline="middle">${d.cellL.toFixed(1)} × ${d.cellW.toFixed(1)}</text>
+      `;
+
+      // 3. KHUNG BẢN VẼ NGOÀI & KHUNG TÊN (TITLE BLOCK)
+      const sheetPad = 70;
+      const sheetX = -sheetPad - 30;
+      const sheetY = -sheetPad;
+      const sheetW = d.L + sheetPad * 2 + 60;
+      const sheetH = d.W + sheetPad * 2 + 50;
+
+      markup += `
+        <rect x="${sheetX}" y="${sheetY}" width="${sheetW}" height="${sheetH}" fill="none" stroke="#252b3d" stroke-width="1.5" />
+        <rect x="${sheetX + 5}" y="${sheetY + 5}" width="${sheetW - 10}" height="${sheetH - 10}" fill="none" stroke="#161b28" stroke-width="0.8" />
+      `;
+
+      const tbW = 280;
+      const tbH = 65;
+      const tbX = sheetX + sheetW - tbW - 5;
+      const tbY = sheetY + sheetH - tbH - 5;
+
+      markup += `
+        <g id="titleBlock">
+          <rect x="${tbX}" y="${tbY}" width="${tbW}" height="${tbH}" fill="#080a10" stroke="#333b52" stroke-width="1.2" />
+          <line x1="${tbX}" y1="${tbY + 22}" x2="${tbX + tbW}" y2="${tbY + 22}" stroke="#252b3d" stroke-width="0.8" />
+          <line x1="${tbX}" y1="${tbY + 44}" x2="${tbX + tbW}" y2="${tbY + 44}" stroke="#252b3d" stroke-width="0.8" />
+          <line x1="${tbX + 160}" y1="${tbY + 22}" x2="${tbX + 160}" y2="${tbY + tbH}" stroke="#252b3d" stroke-width="0.8" />
+
+          <text x="${tbX + 10}" y="${tbY + 14}" fill="#60a5fa" font-size="10.5" font-weight="700" letter-spacing="0.5px">CHI TIẾT: HỆ VÁCH CHIA Ô ĐỊNH HÌNH</text>
+          <text x="${tbX + 10}" y="${tbY + 35}" fill="#cbd5e1" font-size="9.5">KÍCH THƯỚC: ${d.L} × ${d.W} mm</text>
+          <text x="${tbX + 170}" y="${tbY + 35}" fill="#cbd5e1" font-size="9.5">SỐ Ô: ${d.nx * d.ny} (${d.nx}×${d.ny})</text>
+          <text x="${tbX + 10}" y="${tbY + 56}" fill="#94a3b8" font-size="9">THIẾT KẾ: NGUYỄN VĂN PHÚC</text>
+          <text x="${tbX + 170}" y="${tbY + 56}" fill="#34d399" font-size="9" font-weight="700">ĐƠN VỊ: mm | CAD 1:1</text>
+        </g>
+      `;
+
+      g.innerHTML = markup;
+
+      // 4. HỆ THỐNG ĐƯỜNG DÓNG DIM KỸ THUẬT
+      let dimSvg = '';
+      const tick = (x, y) => `M ${x - 3} ${y + 3} L ${x + 3} ${y - 3}`;
+
+      // (A) Dim Dài L
+      const dL_y = -35;
+      dimSvg += `
+        <line x1="0" y1="2" x2="0" y2="${dL_y - 6}" stroke="#475569" stroke-width="0.7"/>
+        <line x1="${d.L}" y1="2" x2="${d.L}" y2="${dL_y - 6}" stroke="#475569" stroke-width="0.7"/>
+        <line x1="-4" y1="${dL_y}" x2="${d.L + 4}" y2="${dL_y}" stroke="#94a3b8" stroke-width="0.9"/>
+        <path d="${tick(0, dL_y)} ${tick(d.L, dL_y)}" stroke="#cbd5e1" stroke-width="1.3"/>
+        <rect x="${d.L/2 - 28}" y="${dL_y - 8}" width="56" height="16" fill="#000000"/>
+        <text x="${d.L/2}" y="${dL_y + 3}" fill="#ffffff" font-size="11" font-weight="700" letter-spacing="0.5px" text-anchor="middle">L=${d.L}</text>
+      `;
+
+      // (B) Dim Rộng W
+      const dW_x = d.L + 45;
+      dimSvg += `
+        <line x1="${d.L - 2}" y1="0" x2="${dW_x + 6}" y2="0" stroke="#475569" stroke-width="0.7"/>
+        <line x1="${d.L - 2}" y1="${d.W}" x2="${dW_x + 6}" y2="${d.W}" stroke="#475569" stroke-width="0.7"/>
+        <line x1="${dW_x}" y1="-4" x2="${dW_x}" y2="${d.W + 4}" stroke="#94a3b8" stroke-width="0.9"/>
+        <path d="${tick(dW_x, 0)} ${tick(dW_x, d.W)}" stroke="#cbd5e1" stroke-width="1.3"/>
+        <rect x="${dW_x - 28}" y="${d.W/2 - 8}" width="56" height="16" fill="#000000"/>
+        <text x="${dW_x}" y="${d.W/2 + 3}" fill="#ffffff" font-size="11" font-weight="700" letter-spacing="0.5px" text-anchor="middle">W=${d.W}</text>
+      `;
+
+      // (C) Dim Offset Y
+      const offY_dimX = -22;
+      dimSvg += `
+        <line x1="2" y1="0" x2="${offY_dimX - 5}" y2="0" stroke="#475569" stroke-width="0.6"/>
+        <line x1="2" y1="${d.offY}" x2="${offY_dimX - 5}" y2="${d.offY}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${offY_dimX}" y1="-3" x2="${offY_dimX}" y2="${d.offY + 3}" stroke="#ffd700" stroke-width="0.8"/>
+        <path d="${tick(offY_dimX, 0)} ${tick(offY_dimX, d.offY)}" stroke="#ffd700" stroke-width="1.1"/>
+        <text x="${offY_dimX - 4}" y="${d.offY/2 + 3}" fill="#ffd700" font-size="9.5" font-weight="700" text-anchor="end">OffY=${d.offY}</text>
+      `;
+
+      // (D) Dim Offset X
+      const offX_dimY = d.W + 28;
+      dimSvg += `
+        <line x1="0" y1="${d.W - 2}" x2="0" y2="${offX_dimY + 5}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${d.offX}" y1="${d.W - 2}" x2="${d.offX}" y2="${offX_dimY + 5}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="-3" y1="${offX_dimY}" x2="${d.offX + 3}" y2="${offX_dimY}" stroke="#ffd700" stroke-width="0.8"/>
+        <path d="${tick(0, offX_dimY)} ${tick(d.offX, offX_dimY)}" stroke="#ffd700" stroke-width="1.1"/>
+        <text x="${d.offX/2}" y="${offX_dimY + 12}" fill="#ffd700" font-size="9.5" font-weight="700" text-anchor="middle">OffX=${d.offX}</text>
+      `;
+
+      // (E) Dim Vách biên Dọc & Ngang (Góc trên phải)
+      const r_offset = d.L - d.offX;
+      const r_inner = d.L - d.offX - d.tOuterX;
+      const topY_offset = d.offY;
+      const topY_inner = d.offY + d.tOuterY;
+
+      // t.Biên.Dọc
+      const tOuterX_dimY = -18;
+      dimSvg += `
+        <line x1="${r_inner}" y1="${topY_offset - 2}" x2="${r_inner}" y2="${tOuterX_dimY - 5}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${r_offset}" y1="${topY_offset - 2}" x2="${r_offset}" y2="${tOuterX_dimY - 5}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${r_inner - 3}" y1="${tOuterX_dimY}" x2="${r_offset + 3}" y2="${tOuterX_dimY}" stroke="#00e5ff" stroke-width="0.8"/>
+        <path d="${tick(r_inner, tOuterX_dimY)} ${tick(r_offset, tOuterX_dimY)}" stroke="#00e5ff" stroke-width="1.1"/>
+        <text x="${(r_inner + r_offset)/2}" y="${tOuterX_dimY - 6}" fill="#00e5ff" font-size="9.5" font-weight="700" text-anchor="middle">t=${d.tOuterX}</text>
+      `;
+
+      // t.Biên.Ngang
+      const tOuterY_dimX = d.L + 18;
+      dimSvg += `
+        <line x1="${r_offset - 2}" y1="${topY_offset}" x2="${tOuterY_dimX + 5}" y2="${topY_offset}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${r_offset - 2}" y1="${topY_inner}" x2="${tOuterY_dimX + 5}" y2="${topY_inner}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${tOuterY_dimX}" y1="${topY_offset - 3}" x2="${tOuterY_dimX}" y2="${topY_inner + 3}" stroke="#00e5ff" stroke-width="0.8"/>
+        <path d="${tick(tOuterY_dimX, topY_offset)} ${tick(tOuterY_dimX, topY_inner)}" stroke="#00e5ff" stroke-width="1.1"/>
+        <text x="${tOuterY_dimX + 6}" y="${(topY_offset + topY_inner)/2 + 3}" fill="#00e5ff" font-size="9.5" font-weight="700" text-anchor="start">t=${d.tOuterY}</text>
+      `;
+
+      // (F) Dim Vách trong Dọc & Ngang
+      const w1 = d.offX + d.tOuterX + d.cellL;
+      const botDimY = d.W + 28;
+      dimSvg += `
+        <line x1="${w1}" y1="${d.W - 2}" x2="${w1}" y2="${botDimY + 8}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${w1 + d.tInnerX}" y1="${d.W - 2}" x2="${w1 + d.tInnerX}" y2="${botDimY + 8}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${w1 - 10}" y1="${botDimY}" x2="${w1 + d.tInnerX + 10}" y2="${botDimY}" stroke="#e040fb" stroke-width="0.8"/>
+        <path d="${tick(w1, botDimY)} ${tick(w1 + d.tInnerX, botDimY)}" stroke="#e040fb" stroke-width="1.1"/>
+        <text x="${w1 + d.tInnerX/2}" y="${botDimY + 12}" fill="#e040fb" font-size="9.5" font-weight="700" text-anchor="middle">t=${d.tInnerX}</text>
+      `;
+
+      const targetWallIdx = Math.max(0, d.vy - 1);
+      const wy1 = d.offY + d.tOuterY + (targetWallIdx + 1) * d.cellW + targetWallIdx * d.tInnerY;
+      const leftDimX = -28;
+      dimSvg += `
+        <line x1="2" y1="${wy1}" x2="${leftDimX - 8}" y2="${wy1}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="2" y1="${wy1 + d.tInnerY}" x2="${leftDimX - 8}" y2="${wy1 + d.tInnerY}" stroke="#475569" stroke-width="0.6"/>
+        <line x1="${leftDimX}" y1="${wy1 - 10}" x2="${leftDimX}" y2="${wy1 + d.tInnerY + 10}" stroke="#e040fb" stroke-width="0.8"/>
+        <path d="${tick(leftDimX, wy1)} ${tick(leftDimX, wy1 + d.tInnerY)}" stroke="#e040fb" stroke-width="1.1"/>
+        <text x="${leftDimX - 6}" y="${wy1 + d.tInnerY/2 + 3}" fill="#e040fb" font-size="9.5" font-weight="700" text-anchor="end">t=${d.tInnerY}</text>
+      `;
+
+      gDim.innerHTML = dimSvg;
+      applyTransform();
+    }
+
+    function applyTransform() {
+      const transform = `translate(${panX}, ${panY}) scale(${zoom})`;
+      document.getElementById('drawGroup').setAttribute('transform', transform);
+      document.getElementById('dimGraphicGroup').setAttribute('transform', transform);
+    }
+
+    function resetView() {
+      if (!calcData) return;
+      const vp = document.getElementById('viewport');
+      const boxW = vp.clientWidth || 800;
+      const boxH = vp.clientHeight || 600;
+
+      const totalDrawW = calcData.L + 240;
+      const totalDrawH = calcData.W + 220;
+
+      const scaleX = (boxW - 60) / totalDrawW;
+      const scaleY = (boxH - 60) / totalDrawH;
+      zoom = Math.min(scaleX, scaleY, 1.8);
+
+      panX = (boxW - (calcData.L * zoom)) / 2;
+      panY = (boxH - (calcData.W * zoom)) / 2 - 10;
+      applyTransform();
+    }
+
+    function zoomView(factor) {
+      zoom = Math.min(50, Math.max(0.05, zoom * factor));
+      applyTransform();
+    }
+
+    window.addEventListener('resize', () => {
+      if (calcData) resetView();
+    });
+
+    // =========================================================
+    // XUẤT ẢNH BẢN VẼ: RENDER TRỰC TIẾP SVG (CHÍNH XÁC 100%)
+    // =========================================================
+    function captureAndShareLayout() {
+      if (!calcData || !calcData.valid) return;
+      const d = calcData;
+
+      // Tính toán khung bao chính xác của bản vẽ
+      const sheetPad = 70;
+      const minX = -sheetPad - 30;
+      const minY = -sheetPad;
+      const sheetW = d.L + sheetPad * 2 + 60;
+      const sheetH = d.W + sheetPad * 2 + 50;
+
+      // Lấy nội dung SVG hiện hành
+      const drawMarkup = document.getElementById('drawGroup').innerHTML;
+      const dimMarkup = document.getElementById('dimGraphicGroup').innerHTML;
+
+      // Tạo chuỗi SVG độc lập có nền lưới CAD và giữ nguyên 100% tọa độ
+      const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${sheetW * 2}" height="${sheetH * 2}" viewBox="${minX} ${minY} ${sheetW} ${sheetH}">
+          <defs>
+            <pattern id="gridMinor_exp" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0a0d14" stroke-width="0.5"/>
+            </pattern>
+            <pattern id="gridMajor_exp" width="100" height="100" patternUnits="userSpaceOnUse">
+              <rect width="100" height="100" fill="url(#gridMinor_exp)"/>
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#131826" stroke-width="0.8"/>
+            </pattern>
+          </defs>
+          <rect x="${minX}" y="${minY}" width="${sheetW}" height="${sheetH}" fill="#000000"/>
+          <rect x="${minX}" y="${minY}" width="${sheetW}" height="${sheetH}" fill="url(#gridMajor_exp)"/>
+          <g font-family="Consolas, 'Courier New', monospace">${drawMarkup}</g>
+          <g font-family="Consolas, 'Courier New', monospace">${dimMarkup}</g>
+        </svg>
+      `;
+
+      // Chuyển SVG sang Image và vẽ lên Canvas tải về
+      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = sheetW * 2;
+        canvas.height = sheetH * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        URL.revokeObjectURL(url);
+        const link = document.createElement('a');
+        link.download = `BanVe_Vach_${d.L}x${d.W}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+      img.src = url;
+    }
+
+    // ==========================================
+    // XUẤT DXF: đồng bộ hình học, khung và kích thước với vùng nhìn
+    // ==========================================
+    function downloadDXF() {
+      if (!calcData || !calcData.valid) return;
+      const d = calcData, entities = [];
+      const fmt = n => (Number.isFinite(n) ? Number(n).toFixed(3) : '0.000');
+      const addLine = (layer, x1, y1, x2, y2) => {
+        entities.push(`0\nLINE\n8\n${layer}\n10\n${fmt(x1)}\n20\n${fmt(-y1)}\n30\n0.0\n11\n${fmt(x2)}\n21\n${fmt(-y2)}\n31\n0.0`);
+      };
+      const addRect = (layer, x, y, w, h) => {
+        if (w <= 0 || h <= 0) return;
+        // DXF trước đây thiếu cạnh đáy; xuất đủ 4 cạnh để kín hình như SVG.
+        addLine(layer, x, y, x+w, y);
+        addLine(layer, x+w, y, x+w, y+h);
+        addLine(layer, x+w, y+h, x, y+h);
+        addLine(layer, x, y+h, x, y);
+      };
+      const addText = (layer, x, y, height, value, colorLayer = layer) => {
+        const safe = String(value).replace(/[\r\n]/g, ' ').replace(/[<>]/g, '').replace(/×/g, 'x').replace(/–|—/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        entities.push(`0\nTEXT\n8\n${colorLayer}\n10\n${fmt(x)}\n20\n${fmt(-y)}\n30\n0.0\n40\n${fmt(height)}\n1\n${safe}\n7\nSTANDARD`);
+      };
+      const addTick = (x,y,size,layer) => addLine(layer,x-size,y-size,x+size,y+size);
+      const addDimH = (x1,x2,y,label,layer='KICH_THUOC') => {
+        addLine(layer,x1,y,x2,y); addTick(x1,y,3,layer); addTick(x2,y,3,layer);
+        addText(layer,(x1+x2)/2,y+4,Math.max(5,Math.min(11,(x2-x1)*0.06)),label);
+      };
+      const addDimV = (x,y1,y2,label,layer='KICH_THUOC') => {
+        addLine(layer,x,y1,x,y2); addTick(x,y1,3,layer); addTick(x,y2,3,layer);
+        addText(layer,x+4,(y1+y2)/2,Math.max(5,Math.min(11,(y2-y1)*0.06)),label);
+      };
+
+      // Hình học chính: xuất đầy đủ 4 cạnh mỗi hình chữ nhật.
+      for (const s of buildGeometry(d)) addRect(s.layer,s.x,s.y,s.w,s.h);
+
+      // Kích thước ô lọt lòng, đúng vị trí ô đầu tiên trên bản xem trước.
+      const textH = Math.max(5, Math.min(14, Math.min(d.cellL,d.cellW)*0.16));
+      const firstX = d.offX + d.tOuterX + d.cellL/2;
+      const firstY = d.offY + d.tOuterY + d.cellW/2;
+      addText('KICH_THUOC_O',firstX,firstY,textH,`${d.cellL.toFixed(1)} x ${d.cellW.toFixed(1)}`);
+
+      // Đường kích thước tổng thể và offset/vách: DXF dùng tọa độ mm, tỷ lệ 1:1.
+      addLine('DUONG_DONG_KICH_THUOC',0,0,0,-41); addLine('DUONG_DONG_KICH_THUOC',d.L,0,d.L,-41);
+      addDimH(0,d.L,-35,`L=${d.L}`);
+      addLine('DUONG_DONG_KICH_THUOC',d.L,0,d.L+52,0); addLine('DUONG_DONG_KICH_THUOC',d.L,d.W,d.L+52,d.W);
+      addDimV(d.L+45,0,d.W,`W=${d.W}`);
+      if (d.offY > 0) { addLine('DUONG_DONG_KICH_THUOC',0,0,-28,0); addLine('DUONG_DONG_KICH_THUOC',0,d.offY,-28,d.offY); addDimV(-22,0,d.offY,`OffY=${d.offY}`); }
+      if (d.offX > 0) { addLine('DUONG_DONG_KICH_THUOC',0,d.W,0,d.W+42); addLine('DUONG_DONG_KICH_THUOC',d.offX,d.W,d.offX,d.W+42); addDimH(0,d.offX,d.W+28,`OffX=${d.offX}`); }
+      if (d.tOuterX > 0) addDimH(d.L-d.offX-d.tOuterX,d.L-d.offX,-18,`t=${d.tOuterX}`,'KICH_THUOC_VACH');
+      if (d.tOuterY > 0) addDimV(d.L+18,d.offY,d.offY+d.tOuterY,`t=${d.tOuterY}`,'KICH_THUOC_VACH');
+      if (d.vx > 0 && d.tInnerX > 0) {
+        const wx=d.offX+d.tOuterX+d.cellL;
+        addDimH(wx,wx+d.tInnerX,d.W+28,`t=${d.tInnerX}`,'KICH_THUOC_VACH');
+      }
+      if (d.vy > 0 && d.tInnerY > 0) {
+        const idx=Math.max(0,d.vy-1), wy=d.offY+d.tOuterY+(idx+1)*d.cellW+idx*d.tInnerY;
+        addDimV(-28,wy,wy+d.tInnerY,`t=${d.tInnerY}`,'KICH_THUOC_VACH');
+      }
+
+      // Khung bản vẽ và khung tên tương ứng phần hiển thị trong SVG.
+      const sheetPad=70, sheetX=-sheetPad-30, sheetY=-sheetPad;
+      const sheetW=d.L+sheetPad*2+60, sheetH=d.W+sheetPad*2+50;
+      addRect('KHUNG_BAN_VE',sheetX,sheetY,sheetW,sheetH);
+      addRect('KHUNG_BAN_VE',sheetX+5,sheetY+5,sheetW-10,sheetH-10);
+      const tbW=280,tbH=65,tbX=sheetX+sheetW-tbW-5,tbY=sheetY+sheetH-tbH-5;
+      addRect('KHUNG_TEN',tbX,tbY,tbW,tbH);
+      addLine('KHUNG_TEN',tbX,tbY+22,tbX+tbW,tbY+22);
+      addLine('KHUNG_TEN',tbX,tbY+44,tbX+tbW,tbY+44);
+      addLine('KHUNG_TEN',tbX+160,tbY+22,tbX+160,tbY+tbH);
+      addText('MO_TA_VACH',tbX+10,tbY+50,8,'CHI TIET: HE VACH CHIA O DINH HINH');
+      addText('MO_TA_VACH',tbX+10,tbY+30,7,`KICH THUOC: ${d.L} x ${d.W} mm`);
+      addText('MO_TA_VACH',tbX+170,tbY+30,7,`SO O: ${d.nx*d.ny} (${d.nx}x${d.ny})`);
+      addText('MO_TA_VACH',tbX+10,tbY+9,6,'THIET KE: NGUYEN VAN PHUC');
+      addText('MO_TA_VACH',tbX+170,tbY+9,6,'DON VI: mm | CAD 1:1');
+      addText('MO_TA_VACH',d.L/2,-50,Math.max(6,Math.min(10,d.L/70)),`VACH CHIA O: ${d.L}x${d.W} mm - SO LUONG: ${d.nx*d.ny} O (${d.nx}x${d.ny}) - LOT LONG: ${d.cellL.toFixed(1)}x${d.cellW.toFixed(1)} mm`);
+
+      const layerDefs = [
+        ['VIEN_PHU_BI',7],['DUONG_OFFSET',2],['VACH_BIEN',4],['VACH_DOC',4],['VACH_NGANG',4],
+        ['KICH_THUOC_O',2],['KICH_THUOC',7],['KICH_THUOC_VACH',6],['DUONG_DONG_KICH_THUOC',8],
+        ['KHUNG_BAN_VE',8],['KHUNG_TEN',8],['MO_TA_VACH',3]
+      ];
+      const layerTable = layerDefs.map(([name,color])=>`0\nLAYER\n2\n${name}\n70\n64\n62\n${color}\n6\nCONTINUOUS`).join('\n');
+      const dxfContent = `999\nTHIET KE BO CHIA VACH - TAC GIA: NGUYEN VAN PHUC\n0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLTYPE\n70\n1\n0\nLTYPE\n2\nCONTINUOUS\n70\n64\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n0\nENDTAB\n0\nTABLE\n2\nLAYER\n70\n${layerDefs.length}\n${layerTable}\n0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities.join('\n')}\n0\nENDSEC\n0\nEOF`;
+      const blob=new Blob([dxfContent],{type:'application/dxf'}), url=URL.createObjectURL(blob), link=document.createElement('a');
+      link.href=url; link.download=`Vach_Chia_${d.L}x${d.W}_${d.nx}x${d.ny}.dxf`; link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+
+
+
+    // Chuyen nhanh giua bang thong so va vung xem tren man hinh nho.
+    function setMobileView(view) {
+      document.body.classList.toggle('mobile-show-preview', view === 'preview');
+      document.body.classList.toggle('mobile-show-inputs', view === 'inputs');
+      const a = document.getElementById('showInputsBtn');
+      const b = document.getElementById('showPreviewBtn');
+      if (a) a.classList.toggle('active', view === 'inputs');
+      if (b) b.classList.toggle('active', view === 'preview');
+      if (view === 'preview') setTimeout(() => { try { resetView(); } catch (_) {} }, 80);
+    }
+
+    // PWA: service worker works only on localhost or HTTPS, not from file://.
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker:', err));
+      });
+    }
+
+    let deferredInstallPrompt = null;
+    const installButton = document.getElementById('installAppBtn');
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      if (installButton) installButton.classList.add('visible');
+    });
+    if (installButton) {
+      installButton.addEventListener('click', async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          await deferredInstallPrompt.userChoice;
+          deferredInstallPrompt = null;
+          installButton.classList.remove('visible');
+        } else {
+          alert('De cai dat: mo trang web bang Safari/Chrome tu dia chi HTTPS, sau do chon "Them vao man hinh chinh" (iPhone) hoac "Cai dat ung dung" (Android/Chrome).');
+        }
+      });
+    }
+
+  </script>
+</body>
+</html>
